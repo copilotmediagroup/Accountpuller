@@ -16,7 +16,7 @@ app.innerHTML=`
  <div class="metric"><span>MASTER INVENTORY</span><strong id="masterCount">0</strong><small>accounts</small></div>
  <div class="metric"><span>BUYER ALREADY HAS</span><strong id="matchCount">0</strong><small>matches</small></div>
  <div class="metric primary"><span>AVAILABLE TO SELL</span><strong id="availableCount">0</strong><small>accounts</small></div>
- <div class="actions"><button id="downloadAvailable">Download Available Accounts</button><button id="downloadMatches" class="secondary">Download Matches</button></div>
+ <div class="actions"><button id="downloadAvailable">Download Available Accounts</button><button id="downloadMatches" class="secondary">Download Matches</button><button id="downloadReview" class="secondary hidden">Download Needs Review</button></div>
  <div id="quality" class="quality"></div><p id="warning" class="warning"></p>
 </section></main>
 <footer>No database · No Supabase · CSV data is processed in your browser memory only.</footer>`;
@@ -35,10 +35,11 @@ $('compareBtn').addEventListener('click',()=>{
   worker.onmessage=({data})=>{
     if(data.type==='progress') $('status').textContent=`Comparing portfolios… ${data.value}%`;
     if(data.type==='error'){$('status').textContent='Comparison failed: '+data.message;$('compareBtn').disabled=false;worker.terminate();}
-    if(data.type==='done'){result=data.result;$('masterCount').textContent=result.masterCount.toLocaleString();$('matchCount').textContent=result.matches.length.toLocaleString();$('availableCount').textContent=result.available.length.toLocaleString();$('quality').textContent=`Quality check: Master — ${result.masterStats.unique.toLocaleString()} unique IDs, ${result.masterStats.duplicateRows.toLocaleString()} duplicate rows. Buyer — ${result.buyerStats.unique.toLocaleString()} unique IDs, ${result.buyerStats.duplicateRows.toLocaleString()} duplicate rows.`;$('warning').textContent=result.blankMaster?`${result.blankMaster.toLocaleString()} master rows have blank account numbers and were excluded.`:'';$('results').classList.remove('hidden');$('status').textContent='Comparison complete.';$('compareBtn').disabled=false;worker.terminate();}
+    if(data.type==='done'){result=data.result;$('masterCount').textContent=result.masterCount.toLocaleString();$('matchCount').textContent=result.matches.length.toLocaleString();$('availableCount').textContent=result.available.length.toLocaleString();$('quality').textContent=`Verified twice. Master — ${result.masterStats.unique.toLocaleString()} safe unique IDs, ${result.masterStats.duplicateRows.toLocaleString()} duplicate rows. Buyer — ${result.buyerStats.unique.toLocaleString()} safe unique IDs, ${result.buyerStats.duplicateRows.toLocaleString()} duplicate rows.`;const issues=[];if(result.masterStats.scientific)issues.push(`${result.masterStats.scientific.toLocaleString()} MASTER scientific-notation rows quarantined`);if(result.buyerStats.scientific)issues.push(`${result.buyerStats.scientific.toLocaleString()} BUYER scientific IDs excluded from matching`);if(result.blankMaster)issues.push(`${result.blankMaster.toLocaleString()} MASTER blank account rows excluded`);$('warning').textContent=issues.join(' · ');$('downloadReview').classList.toggle('hidden',!result.review.length);$('results').classList.remove('hidden');$('status').textContent='Comparison complete and independently verified.';$('compareBtn').disabled=false;worker.terminate();}
   };
   worker.postMessage({type:'compare',masterFile,buyerFile,masterKey:$('masterKey').value,buyerKey:$('buyerKey').value});
 });
 function download(rows,name){const blob=new Blob(['\uFEFF',toCsv(rows,result.fields)],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
 $('downloadAvailable').addEventListener('click',()=>result&&download(result.available,'available-accounts.csv'));
 $('downloadMatches').addEventListener('click',()=>result&&download(result.matches,'matched-accounts.csv'));
+$('downloadReview').addEventListener('click',()=>result&&download(result.review,'needs-review-scientific-ids.csv'));
