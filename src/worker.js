@@ -74,13 +74,25 @@ function verifyMaster(file, key, buyerIds) {
   });
 }
 
+function parseRowsBuyer(rows, key) {
+  const ids=new Set(); let blank=0, duplicateRows=0, scientific=0;
+  for(const row of rows){const value=accountId(row[key]);if(!value){blank++;continue;}if(isScientificId(value)){scientific++;continue;}if(ids.has(value))duplicateRows++;else ids.add(value);}
+  return {ids,rows:rows.length,blank,duplicateRows,scientific};
+}
+function parseRowsMaster(rows, key, buyerIds) {
+  const seen=new Set(),matches=[],available=[],review=[];let blank=0,duplicateRows=0,scientific=0;
+  for(const row of rows){const value=accountId(row[key]);if(!value){blank++;continue;}if(isScientificId(value)){scientific++;review.push(row);continue;}if(seen.has(value))duplicateRows++;else seen.add(value);if(buyerIds.has(value))matches.push(row);else available.push(row);}
+  return {fields:Object.keys(rows[0]||{}),rows:rows.length,blank,duplicateRows,scientific,unique:seen.size,matches,available,review};
+}
+function verifyRows(rows,key,buyerIds){let blank=0,scientific=0,matches=0,available=0;for(const row of rows){const value=accountId(row[key]);if(!value)blank++;else if(isScientificId(value))scientific++;else if(buyerIds.has(value))matches++;else available++;}return {rows:rows.length,blank,scientific,matches,available};}
+
 self.onmessage=async({data})=>{
   if(data.type!=='compare') return;
   try {
-    const buyer=await parseBuyer(data.buyerFile,data.buyerKey);
-    const master=await parseMaster(data.masterFile,data.masterKey,buyer.ids);
+    const buyer=data.buyerRows?parseRowsBuyer(data.buyerRows,data.buyerKey):await parseBuyer(data.buyerFile,data.buyerKey);
+    const master=data.masterRows?parseRowsMaster(data.masterRows,data.masterKey,buyer.ids):await parseMaster(data.masterFile,data.masterKey,buyer.ids);
     postMessage({type:'progress',phase:'verify',value:100});
-    const verify=await verifyMaster(data.masterFile,data.masterKey,buyer.ids);
+    const verify=data.masterRows?verifyRows(data.masterRows,data.masterKey,buyer.ids):await verifyMaster(data.masterFile,data.masterKey,buyer.ids);
     const valid=verify.rows===master.rows && verify.blank===master.blank &&
       verify.scientific===master.scientific &&
       verify.matches===master.matches.length && verify.available===master.available.length &&

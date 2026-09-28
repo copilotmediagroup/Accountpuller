@@ -1,1 +1,1 @@
-{"name":"accountpuller","private":true,"version":"1.0.0","type":"module","scripts":{"dev":"vite --host 0.0.0.0","build":"vite build","test":"vitest run"},"dependencies":{"papaparse":"^5.5.3"},"devDependencies":{"vite":"^5.4.20","vitest":"^2.1.9"}}
+{"name":"accountpuller","private":true,"version":"1.0.0","type":"module","scripts":{"dev":"vite --host 0.0.0.0","build":"vite build","test":"vitest run"},"dependencies":{"exceljs":"^4.4.0","papaparse":"^5.5.3"},"devDependencies":{"vite":"^5.4.20","vitest":"^2.1.9"}}
