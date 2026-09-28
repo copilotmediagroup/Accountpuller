@@ -2,10 +2,11 @@ import Papa from 'papaparse';
 
 const cleanHeader = value => String(value ?? '').replace(/^\uFEFF/, '').trim();
 const accountId = value => value == null ? '' : String(value).trim();
+const isScientificId = value => /^[+-]?(?:\d+\.?\d*|\.\d+)[eE][+-]?\d+$/.test(accountId(value));
 
 function parseBuyer(file, key) {
   return new Promise((resolve, reject) => {
-    const ids = new Set(); let rows = 0, blank = 0, duplicateRows = 0;
+    const ids = new Set(); let rows = 0, blank = 0, duplicateRows = 0, scientific = 0;
     Papa.parse(file, {
       header:true, skipEmptyLines:'greedy', dynamicTyping:false,
       transformHeader:cleanHeader, chunkSize:2 * 1024 * 1024,
@@ -16,18 +17,19 @@ function parseBuyer(file, key) {
         for (const row of results.data) {
           rows++; const value = accountId(row[key]);
           if (!value) { blank++; continue; }
+          if (isScientificId(value)) scientific++;
           if (ids.has(value)) duplicateRows++; else ids.add(value);
         }
         postMessage({type:'progress',phase:'buyer',value:Math.min(35,Math.round((results.meta.cursor/file.size)*35))});
       },
-      complete(){resolve({ids,rows,blank,duplicateRows});}, error:reject
+      complete(){resolve({ids,rows,blank,duplicateRows,scientific});}, error:reject
     });
   });
 }
 
 function parseMaster(file, key, buyerIds) {
   return new Promise((resolve, reject) => {
-    let fields=[], rows=0, blank=0, duplicateRows=0;
+    let fields=[], rows=0, blank=0, duplicateRows=0, scientific=0;
     const seen=new Set(), matches=[], available=[];
     Papa.parse(file, {
       header:true, skipEmptyLines:'greedy', dynamicTyping:false,
@@ -39,13 +41,14 @@ function parseMaster(file, key, buyerIds) {
         for (const row of results.data) {
           rows++; const value=accountId(row[key]);
           if (!value) { blank++; continue; }
+          if (isScientificId(value)) scientific++;
           if (seen.has(value)) duplicateRows++; else seen.add(value);
           if (buyerIds.has(value)) matches.push(row); else available.push(row);
         }
         const pct=35+Math.round((results.meta.cursor/file.size)*65);
         postMessage({type:'progress',phase:'master',value:Math.min(100,pct)});
       },
-      complete(){resolve({fields,rows,blank,duplicateRows,unique:seen.size,matches,available});},
+      complete(){resolve({fields,rows,blank,duplicateRows,scientific,unique:seen.size,matches,available});},
       error:reject
     });
   });
@@ -75,6 +78,9 @@ self.onmessage=async({data})=>{
   try {
     const buyer=await parseBuyer(data.buyerFile,data.buyerKey);
     const master=await parseMaster(data.masterFile,data.masterKey,buyer.ids);
+    if (buyer.scientific || master.scientific) {
+      throw new Error(`Unsafe account data: MASTER contains ${master.scientific} and BUYER contains ${buyer.scientific} scientific-notation account numbers. Exact matching cannot be guaranteed until those source IDs are restored.`);
+    }
     postMessage({type:'progress',phase:'verify',value:100});
     const verify=await verifyMaster(data.masterFile,data.masterKey,buyer.ids);
     const valid=verify.rows===master.rows && verify.blank===master.blank &&

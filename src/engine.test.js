@@ -53,3 +53,11 @@ describe('verbatim CSV identifiers', () => {
     expect(toCsv(parsed.rows, parsed.fields)).toContain(original);
   });
 });
+
+describe('unsafe identifier detection contract', () => {
+  it('keeps scientific notation literal instead of inventing digits', () => {
+    const parsed = parseCsv('Account,Name\n2.461E+12,Jack');
+    expect(parsed.rows[0].Account).toBe('2.461E+12');
+    expect(toCsv(parsed.rows, parsed.fields)).toContain('2.461E+12');
+  });
+});
