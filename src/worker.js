@@ -51,13 +51,38 @@ function parseMaster(file, key, buyerIds) {
   });
 }
 
+function verifyMaster(file, key, buyerIds) {
+  return new Promise((resolve, reject) => {
+    let rows=0, blank=0, matches=0, available=0;
+    Papa.parse(file, {
+      header:true, skipEmptyLines:'greedy', dynamicTyping:false,
+      transformHeader:cleanHeader, chunkSize:4 * 1024 * 1024,
+      chunk(results) {
+        for (const row of results.data) {
+          rows++; const value=accountId(row[key]);
+          if (!value) blank++;
+          else if (buyerIds.has(value)) matches++;
+          else available++;
+        }
+      },
+      complete(){resolve({rows,blank,matches,available});}, error:reject
+    });
+  });
+}
+
 self.onmessage=async({data})=>{
   if(data.type!=='compare') return;
   try {
     const buyer=await parseBuyer(data.buyerFile,data.buyerKey);
     const master=await parseMaster(data.masterFile,data.masterKey,buyer.ids);
+    postMessage({type:'progress',phase:'verify',value:100});
+    const verify=await verifyMaster(data.masterFile,data.masterKey,buyer.ids);
+    const valid=verify.rows===master.rows && verify.blank===master.blank &&
+      verify.matches===master.matches.length && verify.available===master.available.length &&
+      (master.matches.length+master.available.length+master.blank===master.rows);
+    if(!valid) throw new Error('Verification failed: comparison totals did not reconcile. No download was produced.');
     postMessage({type:'done',result:{
-      fields:master.fields,masterCount:master.rows,buyerCount:buyer.rows,
+      fields:master.fields,masterCount:master.rows,buyerCount:buyer.rows,verified:true,
       matches:master.matches,available:master.available,blankMaster:master.blank,
       masterStats:{unique:master.unique,duplicateRows:master.duplicateRows},
       buyerStats:{unique:buyer.ids.size,duplicateRows:buyer.duplicateRows}
