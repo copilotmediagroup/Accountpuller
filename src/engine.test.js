@@ -37,3 +37,19 @@ describe('portfolio quality controls', () => {
     expect(out.available.map(r=>r.Acct)).toEqual(['123','ABC-9']);
   });
 });
+
+describe('verbatim CSV identifiers', () => {
+  it('exports the exact account text stored in master', () => {
+    const original = '000123456789012345678901234567890';
+    const parsed = parseCsv('Account,Name\n' + original + ',Alice');
+    const exported = toCsv(parsed.rows, parsed.fields);
+    const reparsed = parseCsv(exported);
+    expect(reparsed.rows[0].Account).toBe(original);
+  });
+  it('preserves 30 digit identifiers exactly', () => {
+    const original = '987654321012345678909876543210';
+    const parsed = parseCsv('Account\n' + original);
+    expect(parsed.rows[0].Account).toBe(original);
+    expect(toCsv(parsed.rows, parsed.fields)).toContain(original);
+  });
+});
