@@ -22,3 +22,18 @@ describe('account integrity', () => {
     expect(csv).not.toMatch(/e\+\d+/i);
   });
 });
+
+describe('portfolio quality controls', () => {
+  it('reports duplicates and blank account numbers', async () => {
+    const { accountStats } = await import('./engine.js');
+    const rows = [{id:'001'},{id:'001'},{id:'002'},{id:''},{id:'  '}];
+    expect(accountStats(rows,'id')).toEqual({ unique:2, blank:2, duplicateIds:1, duplicateRows:1 });
+  });
+  it('does not fuzzy-match account numbers', () => {
+    const master=parseCsv('Acct,Name\n00123,A\n123,B\nABC-9,C');
+    const buyer=parseCsv('Acct\n00123\nabc-9');
+    const out=compareAccounts(master.rows,buyer.rows,'Acct','Acct');
+    expect(out.matches.map(r=>r.Acct)).toEqual(['00123']);
+    expect(out.available.map(r=>r.Acct)).toEqual(['123','ABC-9']);
+  });
+});

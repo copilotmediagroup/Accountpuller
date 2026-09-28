@@ -16,7 +16,7 @@ app.innerHTML=`
  <div class="metric"><span>BUYER ALREADY HAS</span><strong id="matchCount">0</strong><small>matches</small></div>
  <div class="metric primary"><span>AVAILABLE TO SELL</span><strong id="availableCount">0</strong><small>accounts</small></div>
  <div class="actions"><button id="downloadAvailable">Download Available Accounts</button><button id="downloadMatches" class="secondary">Download Matches</button></div>
- <p id="warning" class="warning"></p>
+ <div id="quality" class="quality"></div><p id="warning" class="warning"></p>
 </section></main>
 <footer>No database · No Supabase · CSV data is processed in your browser memory only.</footer>`;
 
