@@ -1,5 +1,10 @@
+const formatDate = value => {
+  const y=value.getUTCFullYear(), m=value.getUTCMonth()+1, d=value.getUTCDate();
+  return `${m}/${d}/${y}`;
+};
 const text = value => {
   if (value == null) return '';
+  if (value instanceof Date) return formatDate(value);
   if (typeof value === 'object') {
     if ('text' in value) return String(value.text ?? '');
     if ('result' in value) return String(value.result ?? '');
